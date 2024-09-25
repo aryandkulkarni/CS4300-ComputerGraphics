@@ -4,7 +4,7 @@
 
 * Name: Aryan Kulkarni
 * How many hours did it take you to complete this assignment? 14
-* Did you collaborate or share ideas with any other students/TAs/Professors? 
+* Did you collaborate or share ideas with any other students/TAs/Professors? No
 * Did you use any external resources? 
   * https://en.cppreference.com/w/
 * (Optional) What was the most interesting part of the assignment? How would you improve this assignment?
