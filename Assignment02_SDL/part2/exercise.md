@@ -16,11 +16,11 @@ The following are a list of questions about the design of our math library and a
 
 You may add your notes here:
 
-1. *answer to number 1*
-2. *answer to number 2*
-3. *answer to number 3*
-4. *answer to number 4*
-5. *answer to number 5*
-6. *answer to number 6*
-7. *answer to number 7*
-8. *answer to number 8*
+1. Three instances where you use const are for constant variables [const int], constant pointers [const int*], and constant functions [void PPM::savePPM(std::string outputFileName) const {]
+2. Inline suggests to the compiler to replace the call to a function with the code of the function. A programmer might choose to use this to eliminate the overhead associated with a function call like jumping to the address of the function or pushing to the stack.
+3. The header only files in the libraries like GLM are added to the source files at compile time which eliminates the need for a precompiled binary file. This means dll's and other binary linking can be avoided, reducing build steps.
+4. Mat4 is a floating point 4x4 matrix. Implementing << for this type would mean being able to print matrices to std::cout. This is helpful for visual purposes and can help with debugging. GLM doesn't overload the << operator. 
+5. Floating point numbers that have the same mathematical value don't always have the same binary representation, which means comparing these values won't be accurate. One solution is to use Epsilon comparisons (bool isEqual = fabs(f1 – f2) <= epsilon;). This introduces error bounds within which we can determine two floating point numbers as equal. The epsilon is relative according to the difference between the numbers are their magnitudes.
+6. Templates in C++ allow us to make generic classes/functions. This means that they can be instantiated with any data type. It also ensures type safety because the compiler will ensure that operations will be valid for the type at compile time. GLM uses templates to define types like matrices to work with many different data types (float, int, etc.).
+7. There are many similarities between the GLM library and GLSL, and it was designed to closely match so that developers would be comfortable transitioning from GLSL to GLM. They follow the same naming conventions (both have types like mat4). 
+8. Yes
