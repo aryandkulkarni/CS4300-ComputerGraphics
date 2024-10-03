@@ -254,9 +254,10 @@ void VertexSpecification(){
 	//       functions are packed closer together versus CPU operations.
 	const std::vector<GLfloat> vertexPositions
 	{
-		-0.8f, -0.8f, 0.0f, 	// Left vertex position
-		0.8f, -0.8f, 0.0f,  	// right vertex position
-		0.0f,  0.8f, 0.0f,  	// Top vertex position
+		-0.8f, -0.8f, 0.0f,  // Bottom-left vertex position
+    	0.8f, -0.8f, 0.0f,   // Bottom-right vertex position
+    	0.8f,  0.8f, 0.0f,   // Top-right vertex position
+    	-0.8f, 0.8f, 0.0f    // Top-left vertex position
 	};
 
 	// Vertex Arrays Object (VAO) Setup
@@ -287,13 +288,15 @@ void VertexSpecification(){
 
 
     // TODO: Setup indices
-    const std::vector<GLuint> indexBufferData { /* add indices here, think about winding order! */ };
+    const std::vector<GLuint> indexBufferData { 0, 1, 2, 0, 2, 3};
+	
     // 
     // TODO: Setup the index buffer
-    // e.g.
-    // glGenBuffers(1,.....)
-    // glBindBuffer(GL_ELEMENT_ARRAY_BUFFEER, ....)
-    // glBufferData(GL_ELEMENT_ARRAY_BUFFER, ....);
+    // e.g.	
+    GLuint indexBufferObject;
+	glGenBuffers(1, &indexBufferObject);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferObject);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferData.size() * sizeof(GLuint), indexBufferData.data(), GL_STATIC_DRAW);
 
 
 
@@ -357,7 +360,7 @@ void PreDraw(){
 *
 * @return void
 */
-void Draw(){
+void Draw(const std::vector<GLuint>& indexBufferData){
     // Enable our attributes
 	glBindVertexArray(gVertexArrayObject);
 
@@ -367,7 +370,7 @@ void Draw(){
     //Render data
 
     // TODO: Change this draw call to 'glDrawElements'
-    glDrawArrays(GL_TRIANGLES,0,3);
+    glDrawElements(GL_TRIANGLES, indexBufferData.size(), GL_UNSIGNED_INT, 0);
 
 	// Stop using our current graphics pipeline
 	// Note: This is not necessary if we only have one graphics pipeline.
@@ -393,7 +396,7 @@ void getOpenGLVersionInfo(){
 *
 * @return void
 */
-void Input(){
+void Input(GLuint &indexBufferObject, std::vector<GLuint>& indexBufferData){
 	// Event handler that handles various events in SDL
 	// that are related to input and output
 	SDL_Event e;
@@ -404,7 +407,20 @@ void Input(){
 		if(e.type == SDL_QUIT){
 			std::cout << "Goodbye! (Leaving MainApplicationLoop())" << std::endl;
 			gQuit = true;
-		}
+		} else if (e.type == SDL_KEYDOWN) {
+            switch (e.key.keysym.sym) {
+                case SDLK_LEFT:
+                    indexBufferData = { 0, 1, 2 };
+                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferObject);
+                    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferData.size() * sizeof(GLuint), indexBufferData.data(), GL_STATIC_DRAW);
+                    break;
+                case SDLK_RIGHT:
+                    indexBufferData = { 0, 1, 2, 0, 2, 3 };
+                    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferObject);
+                    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferData.size() * sizeof(GLuint), indexBufferData.data(), GL_STATIC_DRAW);
+                    break;
+            }
+        }
 	}
 }
 
@@ -415,17 +431,17 @@ void Input(){
 *
 * @return void
 */
-void MainLoop(){
+void MainLoop(GLuint& indexBufferObject, std::vector<GLuint>& indexBufferData){
 
 	// While application is running
 	while(!gQuit){
 		// Handle Input
-		Input();
+		Input(indexBufferObject, indexBufferData);
 		// Setup anything (i.e. OpenGL State) that needs to take
 		// place before draw calls
 		PreDraw();
 		// Draw Calls in OpenGL
-		Draw();
+		Draw(indexBufferData);
 		//Update screen of our specified window
 		SDL_GL_SwapWindow(gGraphicsApplicationWindow);
 	}
@@ -472,9 +488,12 @@ int main( int argc, char* args[] ){
 	// 3. Create our graphics pipeline
 	// 	- At a minimum, this means the vertex and fragment shader
 	CreateGraphicsPipeline();
+
+	GLuint indexBufferObject;
+    std::vector<GLuint> indexBufferData { 0, 1, 2 };
 	
 	// 4. Call the main application loop
-	MainLoop();	
+	MainLoop(indexBufferObject, indexBufferData);	
 
 	// 5. Call the cleanup function when our program terminates
 	CleanUp();
