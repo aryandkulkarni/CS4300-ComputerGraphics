@@ -401,14 +401,18 @@ void VertexSpecification(){
 	// For this -- we need exactly 'two' vertices for our triangle
 	std::vector<GLfloat> surfaceNormalData;
 
+	glm::vec3 v0(vertexData[0], vertexData[1], vertexData[2]);
+	glm::vec3 v1(vertexData[3], vertexData[4], vertexData[5]);
+	glm::vec3 v2(vertexData[6], vertexData[7], vertexData[8]);
+
 	// TODO: Create edges e1 and e2
-	glm::vec3 e1;
-	glm::vec3 e2;
+	glm::vec3 e1 = v1 - v0;
+	glm::vec3 e2 = v2 - v0;
 	
 	// Take cross product to get perpendicular edge 
 	// Don't forget to normalize
 	// TODO: See glm::cross and glm::normalize
-	glm::vec3 normal;
+	glm::vec3 normal = glm::normalize(glm::cross(e1, e2));
 
 
 	// Find a 'midpoint' or 'centroid' to display the surface normal.
@@ -416,7 +420,7 @@ void VertexSpecification(){
 	// This can be done by simply averaging the x,y,z components
 
 	// TODO -- compute the 'midpoint' or 'centroid' so the normal shows up towards the center of triangle.
-	glm::vec3 midpoint; 
+	glm::vec3 midpoint = (v2 + v1 + v0) / 3.0f; 
 
 	// Populate the surface normal data
   	surfaceNormalData.push_back(midpoint.x);
