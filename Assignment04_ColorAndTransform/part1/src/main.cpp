@@ -255,11 +255,11 @@ void VertexSpecification(){
 	//       functions are packed closer together versus CPU operations.
 	const std::vector<GLfloat> vertexData
 	{
-		-0.8f, -0.8f, 0.0f, 1.0f, 0.0f, 0.0f,	// Left vertex position
+		-0.8f, -0.8f, 0.0f, 0.0f, 1.0f, 1.0f,	// Left vertex position
 													// TODO: Interleave your color data in the vertex data
-		0.8f, -0.8f, 0.0f, 0.0f, 1.0f, 0.0f, 	// right vertex position
+		0.8f, -0.8f, 0.0f, 1.0f, 0.0f, 1.0f, 	// right vertex position
 													// TODO: Interleave your color data in the vertex data
-		0.0f,  0.8f, 0.0f, 0.0f, 0.0f, 1.0f  	// Top vertex position
+		0.0f,  0.8f, 0.0f, 1.0f, 1.0f, 0.0f  	// Top vertex position
 													// TODO: Interleave your color data in the vertex data
 	};
 
@@ -339,7 +339,7 @@ void PreDraw(){
     // Initialize clear color
     // This is the background of the screen.
     glViewport(0, 0, gScreenWidth, gScreenHeight);
-    glClearColor( 1.f, 1.f, 0.f, 1.f );
+    glClearColor( 0.5f, 0.5f, 0.5f, 1.0f );
 
     //Clear color buffer and Depth Buffer
   	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
