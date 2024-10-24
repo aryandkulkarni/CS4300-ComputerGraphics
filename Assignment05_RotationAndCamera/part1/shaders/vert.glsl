@@ -19,7 +19,7 @@ void main()
   v_vertexColors = vertexColors;
 
   // TODO: Utilize your MVP matrix
-  vec4 newPosition =  vec4(position,1.0f);
+  vec4 newPosition = u_Projection * u_ViewMatrix * u_ModelMatrix * vec4(position, 1.0f);
                                     // Don't forget 'w=1.0f'
 	gl_Position = vec4(newPosition.x, newPosition.y, newPosition.z, newPosition.w);
 }

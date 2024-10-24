@@ -517,16 +517,28 @@ void PreDraw(){
 
     // Update our model matrix by applying a rotation after our translation
     model           = glm::rotate(model,glm::radians(g_uRotate),glm::vec3(0.0f,1.0f,0.0f));
-
-	// TODO: Send data to GPU    
-
+  
+	GLint u_ModelMatrixLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "u_ModelMatrix");
+    if (u_ModelMatrixLocation >= 0) {
+        glUniformMatrix4fv(u_ModelMatrixLocation, 1, GL_FALSE, &model[0][0]);
+    } else {
+        std::cout << "Could not find u_ModelMatrix" << std::endl;
+        exit(EXIT_FAILURE);
+    }
     // Projection matrix (in perspective) 
     glm::mat4 perspective = glm::perspective(glm::radians(45.0f),
                                              (float)gScreenWidth/(float)gScreenHeight,
                                              0.1f,
                                              20.0f);
-	// TODO: Send data to GPU
-	
+	GLint perspectiveLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "u_Projection");
+    if (perspectiveLocation >= 0) {
+        glUniformMatrix4fv(perspectiveLocation, 1, GL_FALSE, &perspective[0][0]);
+    }
+    glm::mat4 view = gCamera.GetViewMatrix();
+    GLint viewMatrixLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "u_ViewMatrix");
+    if (viewMatrixLocation >= 0) {
+        glUniformMatrix4fv(viewMatrixLocation, 1, GL_FALSE, &view[0][0]);
+    }
     // Perform our rotation update
     if(g_rotatePositive){
         g_uRotate+=0.5f;
