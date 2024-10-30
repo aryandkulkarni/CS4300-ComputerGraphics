@@ -294,37 +294,90 @@ float map_linear(float x, float in_min, float in_max, float out_min, float out_m
 // Pass in an unsigned integer representing the number of
 // rows and columns in the plane (e.g. resolution=00)
 // The plane is 'flat' so the 'y' position will be 0.0f;
-std::vector<Triangle> generatePlane(size_t resolution=0){
- 
-    // Store the resulting plane 
+std::vector<Triangle> generatePlane(size_t resolution = 1) {
+    // Store the resulting plane
     std::vector<Triangle> result;
+
+    float start = -1.0f;
+    float end = 1.0f;
+    float step = (end - start) / resolution;
+
+    std::vector<Vertex> vertices;
+
+    for (size_t i = 0; i <= resolution; ++i) {
+        for (size_t j = 0; j <= resolution; ++j) {
+            float x = start + j * step;
+            float y = 0.0f; 
+            float z = start + i * step;
+
+            float r = 0.0f;
+            float g = 0.5f;
+            float b = 0.0f;
+            vertices.push_back({x, y, z, r, g, b});
+        }
+    }
+
+    for (size_t i = 0; i < resolution; ++i) {
+        for (size_t j = 0; j < resolution; ++j) {
+            Triangle t1;
+            Triangle t2;
+            size_t row1 = i * (resolution + 1);
+            size_t row2 = (i + 1) * (resolution + 1);
+
+            t1.vertices[0] = vertices[row1 + j];
+            t1.vertices[1] = vertices[row2 + j];
+            t1.vertices[2] = vertices[row1 + j + 1];
+
+            t2.vertices[0] = vertices[row1 + j + 1];
+            t2.vertices[1] = vertices[row2 + j];
+            t2.vertices[2] = vertices[row2 + j + 1];
+
+            result.push_back(t1);
+            result.push_back(t2);
+        }
+    }
 
     return result;
 }
 
 
 
-
 // Regenerate the flat plane
-void GeneratePlaneBufferData(){
-    // Generate a plane with the resolution 
-    std::vector<Triangle> mesh = generatePlane(gFloorResolution); 
+void GeneratePlaneBufferData() {
+    // Generate a plane with the current resolution
+    std::vector<Triangle> mesh = generatePlane(gFloorResolution);
 
-		std::vector<GLfloat> vertexDataFloor;
+                std::vector<GLfloat> vertexDataFloor;
 
-
-		// Store size in a global so you can later determine how many
+    for (const auto& t : mesh) {
+        for (const auto& v : t.vertices) {
+            
+            vertexDataFloor.push_back(v.x);
+            vertexDataFloor.push_back(v.y);
+            vertexDataFloor.push_back(v.z);
+            
+            vertexDataFloor.push_back(v.r);
+            vertexDataFloor.push_back(v.g);
+            vertexDataFloor.push_back(v.b);
+            
+            vertexDataFloor.push_back(v.nx);
+            vertexDataFloor.push_back(v.ny);
+            vertexDataFloor.push_back(v.nz);
+        }
+    }
+        // Store size in a global so you can later determine how many
 		// vertices to draw in glDrawArrays;
 		// TODO: You need to verify to yourself if this 'size' represents the number of 'vertices' or not -- think about it.
-    gFloorTriangles = vertexDataFloor.size();
+    gFloorTriangles = vertexDataFloor.size() / 9;
 
 		glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferObjectFloor);
 		glBufferData(GL_ARRAY_BUFFER, 						// Kind of buffer we are working with 
 																							// (e.g. GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER)
 							 vertexDataFloor.size() * sizeof(GL_FLOAT), 	// Size of data in bytes
 							 vertexDataFloor.data(), 											// Raw array of data
-							 GL_STATIC_DRAW);															// How we intend to use the data
+							 GL_STATIC_DRAW);	
 }
+
 
 /**
 * Setup your geometry during the vertex specification step
@@ -398,10 +451,10 @@ void PreDraw(){
     glClearColor( 0.1f, 4.f, 7.f, 1.f );
 
     //Clear color buffer and Depth Buffer
-  	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+  	    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
     // Use our shader
-	glUseProgram(gGraphicsPipelineShaderProgram);
+	    glUseProgram(gGraphicsPipelineShaderProgram);
 
     // Model transformation by translating our object into world space
     glm::mat4 model = glm::translate(glm::mat4(1.0f),glm::vec3(0.0f,0.0f,0.0f)); 
@@ -532,17 +585,17 @@ void Input(){
     // Camera
     // Update our position of the camera
     if (state[SDL_SCANCODE_W]) {
-        gCamera.MoveForward(0.1f);
+        gCamera.MoveForward(0.01f);
     }
     if (state[SDL_SCANCODE_S]) {
-        gCamera.MoveBackward(0.1f);
+        gCamera.MoveBackward(0.01f);
     }
     if (state[SDL_SCANCODE_A]) {
     }
     if (state[SDL_SCANCODE_D]) {
     }
 
-    if (state[SDL_SCANCODE_1]) {
+    if (state[SDL_SCANCODE_TAB]) {
         SDL_Delay(250); // This is hacky in the name of simplicity,
                        // but we just delay the
                        // system by a few milli-seconds to process the 

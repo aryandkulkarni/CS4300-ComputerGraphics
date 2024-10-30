@@ -4,10 +4,16 @@
 #include "glm/gtx/rotate_vector.hpp"
 
 #include <iostream>
+#include <algorithm>
 
 void Camera::MouseLook(int mouseX, int mouseY){
     // Record our new position as a vector
     glm::vec2 newMousePosition(mouseX, mouseY);
+    glm::vec2 changeInPosition = newMousePosition - m_oldMousePosition;
+
+    const float sensitivity = 0.1f;
+    m_horizontal_rotation += changeInPosition.x * sensitivity;
+    m_pitch -= changeInPosition.y * sensitivity;
 
     // Little hack for our 'mouse look function'
     // We need this so that we can move our camera
@@ -17,6 +23,14 @@ void Camera::MouseLook(int mouseX, int mouseY){
         firstLook=false;
         m_oldMousePosition = newMousePosition;
     }
+
+    m_pitch = std::clamp(m_pitch, -90.0f, 90.0f);
+
+    glm::vec3 front;
+    front.x = cos(glm::radians(m_pitch)) * cos(glm::radians(m_horizontal_rotation));
+    front.y = sin(glm::radians(m_pitch));
+    front.z = cos(glm::radians(m_pitch)) * sin(glm::radians(m_horizontal_rotation));
+    m_viewDirection = glm::normalize(front);
 
     
     // Update our old position after we have made changes 
@@ -95,6 +109,9 @@ Camera::Camera(){
     m_viewDirection = glm::vec3(0.0f,0.0f, -1.0f);
 	// For now--our upVector always points up along the y-axis
     m_upVector = glm::vec3(0.0f, 1.0f, 0.0f);
+
+    m_horizontal_rotation = 90.0f;
+    m_pitch = 0.0f;
 }
 
 glm::mat4 Camera::GetViewMatrix() const{
