@@ -30,22 +30,26 @@ void Camera::MouseLook(int mouseX, int mouseY){
 
 void Camera::MoveForward(float speed){
     //    m_eyePosition.z -= speed;
-        m_eyePosition.x += m_viewDirection.x *speed;
-        m_eyePosition.y += m_viewDirection.y *speed;
-        m_eyePosition.z += m_viewDirection.z *speed;
+        m_eyePosition.x += 0.1f * m_viewDirection.x *speed;
+        m_eyePosition.y += 0.1f * m_viewDirection.y *speed;
+        m_eyePosition.z += 0.1f * m_viewDirection.z *speed;
 }
 
 void Camera::MoveBackward(float speed){
    //    m_eyePosition.z += speed;
-        m_eyePosition.x -= m_viewDirection.x *speed;
-        m_eyePosition.y -= m_viewDirection.y *speed;
-        m_eyePosition.z -= m_viewDirection.z *speed;
+        m_eyePosition.x -= 0.1f * m_viewDirection.x *speed;
+        m_eyePosition.y -= 0.1f * m_viewDirection.y *speed;
+        m_eyePosition.z -= 0.1f * m_viewDirection.z *speed;
 }
 
 void Camera::MoveLeft(float speed){
+    glm::vec3 left = glm::normalize(glm::cross(m_upVector, m_viewDirection));
+    m_eyePosition += 0.1f * speed * left;
 }
 
 void Camera::MoveRight(float speed){
+    glm::vec3 right = glm::normalize(glm::cross(m_viewDirection, m_upVector));
+    m_eyePosition += 0.1f * speed * right;
 }
 
 void Camera::MoveUp(float speed){

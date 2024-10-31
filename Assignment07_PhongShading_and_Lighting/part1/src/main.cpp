@@ -6,9 +6,8 @@
 #include <SDL2/SDL.h>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
-#include <glm/vec3.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/gtc/matrix_transform.hpp> 
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 // C++ Standard Template Library (STL)
 #include <iostream>
@@ -17,72 +16,109 @@
 #include <fstream>
 
 // Our libraries
+#include "ModelLoader.hpp"
 #include "Camera.hpp"
 
-// vvvvvvvvvvvvvvvvvvvvvvvvvv Globals vvvvvvvvvvvvvvvvvvvvvvvvvv
-// Globals generally are prefixed with 'g' in this application.
-
 // Screen Dimensions
-int gScreenWidth 						= 640;
-int gScreenHeight 						= 480;
-SDL_Window* gGraphicsApplicationWindow 	= nullptr;
-SDL_GLContext gOpenGLContext			= nullptr;
+const int WINDOW_WIDTH = 800;
+const int WINDOW_HEIGHT = 600;
+SDL_Window* window = nullptr;
+SDL_GLContext glContext;
 
-// Main loop flag
-bool gQuit = false; // If this is quit = 'true' then the program terminates.
+bool gQuit = false;
+bool wireframeMode = false;
+bool modelLoaded = false;
 
-// shader
-// The following stores the a unique id for the graphics pipeline
-// program object that will be used for our OpenGL draw calls.
-GLuint gGraphicsPipelineShaderProgram	= 0;
+GLuint gGraphicsPipelineShaderProgram = 0;
+GLuint vao = 0, vbo = 0;
+size_t vertexCount = 0;
+Camera camera;
 
-// OpenGL Objects
-// Vertex Array Object (VAO)
-// Vertex array objects encapsulate all of the items needed to render an object.
-// For example, we may have multiple vertex buffer objects (VBO) related to rendering one
-// object. The VAO allows us to setup the OpenGL state to render that object using the
-// correct layout and correct buffers with one call after being setup.
-GLuint gVertexArrayObjectFloor= 0;
-// Vertex Buffer Object (VBO)
-// Vertex Buffer Objects store information relating to vertices (e.g. positions, normals, textures)
-// VBOs are our mechanism for arranging geometry on the GPU.
-GLuint  gVertexBufferObjectFloor            = 0;
+struct PointLight {
+    glm::vec3 position;
+    glm::vec3 color;
+    float constant;
+    float linear;
+    float quadratic;
+};
 
-// Camera
-Camera gCamera;
+PointLight pointLight;
 
-// Draw wireframe mode
-GLenum gPolygonMode = GL_LINE;
+struct Material {
+    glm::vec3 ambient;
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+    float shininess;
+};
 
-// Floor resolution
-size_t gFloorResolution = 10;
-size_t gFloorTriangles  = 0;
-
-// ^^^^^^^^^^^^^^^^^^^^^^^^ Globals ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
+Material material;
 
 
 // vvvvvvvvvvvvvvvvvvv Error Handling Routines vvvvvvvvvvvvvvv
-static void GLClearAllErrors(){
-    while(glGetError() != GL_NO_ERROR){
+static void GLClearAllErrors() {
+    while (glGetError() != GL_NO_ERROR) {
     }
 }
 
 // Returns true if we have an error
-static bool GLCheckErrorStatus(const char* function, int line){
-    while(GLenum error = glGetError()){
-        std::cout << "OpenGL Error:" << error 
-                  << "\tLine: " << line 
+static bool GLCheckErrorStatus(const char* function, int line) {
+    while (GLenum error = glGetError()) {
+        std::cout << "OpenGL Error:" << error
+                  << "\tLine: " << line
                   << "\tfunction: " << function << std::endl;
         return true;
     }
     return false;
 }
 
-#define GLCheck(x) GLClearAllErrors(); x; GLCheckErrorStatus(#x,__LINE__);
+#define GLCheck(x) GLClearAllErrors(); x; GLCheckErrorStatus(#x, __LINE__);
 // ^^^^^^^^^^^^^^^^^^^ Error Handling Routines ^^^^^^^^^^^^^^^
 
 
+std::string LoadShaderAsString(const std::string& filename);
+GLuint CompileShader(GLuint type, const std::string& source);
+GLuint CreateShaderProgram(const std::string& vertexShaderSource, const std::string& fragmentShaderSource);
+void InitializeProgram();
+void CreateGraphicsPipeline();
+void GenerateBufferData(const ModelLoader& model);
+void VertexSpecification(const ModelLoader& model);
+void Input();
+void PreDraw();
+void Draw();
+void MainLoop();
+void CleanUp();
+
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cout << "Usage: ./program <path_to_obj_file> ..." << std::endl;
+        return -1;
+    }
+
+    std::string objPath = argv[1];
+    ModelLoader model;
+    if (!model.loadOBJ(objPath)) {
+        std::cerr << "Failed to load model." << std::endl;
+        return -1;
+    }
+
+    // 1. Setup the graphics program
+    InitializeProgram();
+
+    // 2. Setup our geometry
+    VertexSpecification(model);
+
+    // 3. Create our graphics pipeline
+    CreateGraphicsPipeline();
+    modelLoaded = true;
+
+    // 4. Call the main application loop
+    MainLoop();
+
+    // 5. Call the cleanup function when our program terminates
+    CleanUp();
+
+    return 0;
+}
 
 /**
 * LoadShaderAsString takes a filepath as an argument and will read line by line a file and return a string that is meant to be compiled at runtime for a vertex, fragment, geometry, tesselation, or compute shader.
@@ -92,24 +128,25 @@ static bool GLCheckErrorStatus(const char* function, int line){
 * @param filename Path to the shader file
 * @return Entire file stored as a single string 
 */
-std::string LoadShaderAsString(const std::string& filename){
+std::string LoadShaderAsString(const std::string& filename) {
     // Resulting shader program loaded as a single string
     std::string result = "";
 
     std::string line = "";
     std::ifstream myFile(filename.c_str());
 
-    if(myFile.is_open()){
-        while(std::getline(myFile, line)){
+    if (myFile.is_open()) {
+        while (std::getline(myFile, line)) {
             result += line + '\n';
         }
         myFile.close();
-
+    } else {
+        std::cerr << "Unable to open shader file: " << filename << std::endl;
+        exit(-1);
     }
 
     return result;
 }
-
 
 /**
 * CompileShader will compile any valid vertex, fragment, geometry, tesselation, or compute shader.
@@ -121,53 +158,30 @@ std::string LoadShaderAsString(const std::string& filename){
 * @param source : The shader source code.
 * @return id of the shaderObject
 */
-GLuint CompileShader(GLuint type, const std::string& source){
-	// Compile our shaders
-	GLuint shaderObject;
+GLuint CompileShader(GLuint type, const std::string& source) {
+    GLuint shaderObject = glCreateShader(type);
 
-	// Based on the type passed in, we create a shader object specifically for that
-	// type.
-	if(type == GL_VERTEX_SHADER){
-		shaderObject = glCreateShader(GL_VERTEX_SHADER);
-	}else if(type == GL_FRAGMENT_SHADER){
-		shaderObject = glCreateShader(GL_FRAGMENT_SHADER);
-	}
+    const char* src = source.c_str();
+    glShaderSource(shaderObject, 1, &src, nullptr);
+    glCompileShader(shaderObject);
 
-	const char* src = source.c_str();
-	// The source of our shader
-	glShaderSource(shaderObject, 1, &src, nullptr);
-	// Now compile our shader
-	glCompileShader(shaderObject);
+    int result;
+    glGetShaderiv(shaderObject, GL_COMPILE_STATUS, &result);
 
-	// Retrieve the result of our compilation
-	int result;
-	// Our goal with glGetShaderiv is to retrieve the compilation status
-	glGetShaderiv(shaderObject, GL_COMPILE_STATUS, &result);
+    if (result == GL_FALSE) {
+        int length;
+        glGetShaderiv(shaderObject, GL_INFO_LOG_LENGTH, &length);
+        char* errorMessages = new char[length];
+        glGetShaderInfoLog(shaderObject, length, &length, errorMessages);
 
-	if(result == GL_FALSE){
-		int length;
-		glGetShaderiv(shaderObject, GL_INFO_LOG_LENGTH, &length);
-		char* errorMessages = new char[length]; // Could also use alloca here.
-		glGetShaderInfoLog(shaderObject, length, &length, errorMessages);
+        std::cout << "ERROR: Shader compilation failed!\n" << errorMessages << "\n";
+        delete[] errorMessages;
+        glDeleteShader(shaderObject);
+        return 0;
+    }
 
-		if(type == GL_VERTEX_SHADER){
-			std::cout << "ERROR: GL_VERTEX_SHADER compilation failed!\n" << errorMessages << "\n";
-		}else if(type == GL_FRAGMENT_SHADER){
-			std::cout << "ERROR: GL_FRAGMENT_SHADER compilation failed!\n" << errorMessages << "\n";
-		}
-		// Reclaim our memory
-		delete[] errorMessages;
-
-		// Delete our broken shader
-		glDeleteShader(shaderObject);
-
-		return 0;
-	}
-
-  return shaderObject;
+    return shaderObject;
 }
-
-
 
 /**
 * Creates a graphics program object (i.e. graphics pipeline) with a Vertex Shader and a Fragment Shader
@@ -176,472 +190,263 @@ GLuint CompileShader(GLuint type, const std::string& source){
 * @param fragmentShaderSource Fragment shader source code as a string
 * @return id of the program Object
 */
-GLuint CreateShaderProgram(const std::string& vertexShaderSource, const std::string& fragmentShaderSource){
-
-    // Create a new program object
+GLuint CreateShaderProgram(const std::string& vertexShaderSource, const std::string& fragmentShaderSource) {
     GLuint programObject = glCreateProgram();
 
-    // Compile our shaders
-    GLuint myVertexShader   = CompileShader(GL_VERTEX_SHADER, vertexShaderSource);
+    GLuint myVertexShader = CompileShader(GL_VERTEX_SHADER, vertexShaderSource);
     GLuint myFragmentShader = CompileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
 
-    // Link our two shader programs together.
-	// Consider this the equivalent of taking two .cpp files, and linking them into
-	// one executable file.
-    glAttachShader(programObject,myVertexShader);
-    glAttachShader(programObject,myFragmentShader);
+    glAttachShader(programObject, myVertexShader);
+    glAttachShader(programObject, myFragmentShader);
     glLinkProgram(programObject);
 
-    // Validate our program
     glValidateProgram(programObject);
 
-    // Once our final program Object has been created, we can
-	// detach and then delete our individual shaders.
-    glDetachShader(programObject,myVertexShader);
-    glDetachShader(programObject,myFragmentShader);
-	// Delete the individual shaders once we are done
+    glDetachShader(programObject, myVertexShader);
+    glDetachShader(programObject, myFragmentShader);
     glDeleteShader(myVertexShader);
     glDeleteShader(myFragmentShader);
 
     return programObject;
 }
 
+void InitializeProgram() {
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        std::cout << "SDL initialization failed! SDL Error: " << SDL_GetError() << "\n";
+        exit(-1);
+    }
 
-/**
-* Create the graphics pipeline
-*
-* @return void
-*/
-void CreateGraphicsPipeline(){
+    SDL_SetRelativeMouseMode(SDL_TRUE);
 
-    std::string vertexShaderSource      = LoadShaderAsString("./shaders/vert.glsl");
-    std::string fragmentShaderSource    = LoadShaderAsString("./shaders/frag.glsl");
+    // Setup OpenGL Context
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    // We want to request a double buffer for smooth updating.
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-	gGraphicsPipelineShaderProgram = CreateShaderProgram(vertexShaderSource,fragmentShaderSource);
+    window = SDL_CreateWindow("OBJ Renderer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                              WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_OPENGL);
+    if (!window) {
+        std::cerr << "Failed to create SDL window.\n";
+        exit(-1);
+    }
+
+    glContext = SDL_GL_CreateContext(window);
+    if (!glContext) {
+        std::cerr << "Failed to create OpenGL context.\n";
+        exit(-1);
+    }
+
+    if (!gladLoadGLLoader(SDL_GL_GetProcAddress)) {
+        std::cerr << "Failed to initialize GLAD.\n";
+        exit(-1);
+    }
+
+    pointLight.position = glm::vec3(0.0f, 0.0f, 2.0f);
+    pointLight.color = glm::vec3(1.0f, 1.0f, 1.0f);
+    pointLight.constant = 1.0f;
+    pointLight.linear = 0.09f;
+    pointLight.quadratic = 0.032f;
+
+    material.ambient = glm::vec3(0.1f, 0.2f, 0.25f);
+    material.diffuse = glm::vec3(0.6f, 0.6f, 0.6f);
+    material.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+    material.shininess = 35.0f;
 }
 
+void CreateGraphicsPipeline() {
+    std::string vertexShaderSource = LoadShaderAsString("./shaders/vert.glsl");
+    std::string fragmentShaderSource = LoadShaderAsString("./shaders/frag.glsl");
 
-/**
-* Initialization of the graphics application. Typically this will involve setting up a window
-* and the OpenGL Context (with the appropriate version)
-*
-* @return void
-*/
-void InitializeProgram(){
-	// Initialize SDL
-	if(SDL_Init(SDL_INIT_VIDEO)< 0){
-		std::cout << "SDL could not initialize! SDL Error: " << SDL_GetError() << "\n";
-		exit(1);
-	}
-	
-	// Setup the OpenGL Context
-	// Use OpenGL 4.1 core or greater
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 4 );
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 1 );
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
-	// We want to request a double buffer for smooth updating.
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-
-	// Create an application window using OpenGL that supports SDL
-	gGraphicsApplicationWindow = SDL_CreateWindow( "Tesselation",
-													SDL_WINDOWPOS_UNDEFINED,
-													SDL_WINDOWPOS_UNDEFINED,
-													gScreenWidth,
-													gScreenHeight,
-													SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN );
-
-	// Check if Window did not create.
-	if( gGraphicsApplicationWindow == nullptr ){
-		std::cout << "Window could not be created! SDL Error: " << SDL_GetError() << "\n";
-		exit(1);
-	}
-
-	// Create an OpenGL Graphics Context
-	gOpenGLContext = SDL_GL_CreateContext( gGraphicsApplicationWindow );
-	if( gOpenGLContext == nullptr){
-		std::cout << "OpenGL context could not be created! SDL Error: " << SDL_GetError() << "\n";
-		exit(1);
-	}
-
-	// Initialize GLAD Library
-	if(!gladLoadGLLoader(SDL_GL_GetProcAddress)){
-		std::cout << "glad did not initialize" << std::endl;
-		exit(1);
-	}
-	
+    gGraphicsPipelineShaderProgram = CreateShaderProgram(vertexShaderSource, fragmentShaderSource);
 }
 
+void GenerateBufferData(const ModelLoader& model) {
+    const auto& vertices = model.getVertexData();
+    vertexCount = vertices.size() / 9;
 
-struct Vertex{
-    float x,y,z;    // position
-	float r,g,b; 	// color
-	float nx,ny,nz; // normals
-};  
-
-struct Triangle{
-    Vertex vertices[3]; // 3 vertices per triangle
-};
-
-
-
-// Return a value that is a mapping between the current range and a new range.
-// Source: https://www.arduino.cc/reference/en/language/functions/math/map/
-float map_linear(float x, float in_min, float in_max, float out_min, float out_max){
-    return (x-in_min) * (out_max - out_min) / (in_max - in_min) + out_min;;
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 }
 
-// Pass in an unsigned integer representing the number of
-// rows and columns in the plane (e.g. resolution=00)
-// The plane is 'flat' so the 'z' position will be 0.0f;
-std::vector<Triangle> generatePlane(size_t resolution=0){
- 
-    // Store the resulting plane 
-    std::vector<Triangle> result;
+void VertexSpecification(const ModelLoader& model) {
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
 
-    return result;
-}
+    glGenBuffers(1, &vbo);
 
+    GenerateBufferData(model);
 
-
-
-// Regenerate the flat plane
-void GeneratePlaneBufferData(){
-    // Generate a plane with the resolution 
-    std::vector<Triangle> mesh = generatePlane(gFloorResolution); 
-
-		std::vector<GLfloat> vertexDataFloor;
-
-
-		// Store size in a global so you can later determine how many
-		// vertices to draw in glDrawArrays;
-    gFloorTriangles = vertexDataFloor.size();
-
-		glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferObjectFloor);
-		glBufferData(GL_ARRAY_BUFFER, 						// Kind of buffer we are working with 
-																							// (e.g. GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER)
-							 vertexDataFloor.size() * sizeof(GL_FLOAT), 	// Size of data in bytes
-							 vertexDataFloor.data(), 											// Raw array of data
-							 GL_STATIC_DRAW);															// How we intend to use the data
-}
-
-/**
-* Setup your geometry during the vertex specification step
-*
-* @return void
-*/
-/**
-* Setup your geometry during the vertex specification step
-*
-* @return void
-*/
-void VertexSpecification(){
-
-	// Vertex Arrays Object (VAO) Setup
-	glGenVertexArrays(1, &gVertexArrayObjectFloor);
-	// We bind (i.e. select) to the Vertex Array Object (VAO) that we want to work withn.
-	glBindVertexArray(gVertexArrayObjectFloor);
-	// Vertex Buffer Object (VBO) creation
-	glGenBuffers(1, &gVertexBufferObjectFloor);
-
-    // Generate our data for the buffer
-    GeneratePlaneBufferData();
- 
-    // =============================
-    // offsets every 3 floats
-    // v     v     v
-    // 
-    // x,y,z,r,g,b,nx,ny,nz
-    //
-    // |------------------| strides is '9' floats
-    //
-    // ============================
-    // Position information (x,y,z)
-	glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,sizeof(GL_FLOAT)*9,(void*)0);
-    // Color information (r,g,b)
+    // Setup vertex attributes
+    // Position
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT) * 9, (void*)0);
+    // Color (not used in this task)
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,sizeof(GL_FLOAT)*9,(GLvoid*)(sizeof(GL_FLOAT)*3));
-    // Normal information (nx,ny,nz)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT) * 9, (GLvoid*)(sizeof(GL_FLOAT) * 3));
+    // Normal
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE,sizeof(GL_FLOAT)*9, (GLvoid*)(sizeof(GL_FLOAT)*6));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT) * 9, (GLvoid*)(sizeof(GL_FLOAT) * 6));
 
-	// Unbind our currently bound Vertex Array Object
-	glBindVertexArray(0);
-	// Disable any attributes we opened in our Vertex Attribute Arrray,
-	// as we do not want to leave them open. 
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	glDisableVertexAttribArray(2);
+    glBindVertexArray(0);
+
+    // Disable vertex attributes
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+    glDisableVertexAttribArray(2);
 }
 
 
-/**
-* PreDraw
-* Typically we will use this for setting some sort of 'state'
-* Note: some of the calls may take place at different stages (post-processing) of the
-* 		 pipeline.
-* @return void
-*/
-void PreDraw(){
-	// Disable depth test and face culling.
-    glEnable(GL_DEPTH_TEST);                    // NOTE: Need to enable DEPTH Test
+void Input() {
+    static int mouseX = WINDOW_WIDTH / 2;
+    static int mouseY = WINDOW_HEIGHT / 2;
+
+    SDL_Event e;
+    while (SDL_PollEvent(&e) != 0) {
+        if (e.type == SDL_QUIT) {
+            std::cout << "Goodbye! (Leaving MainApplicationLoop())" << std::endl;
+            gQuit = true;
+        }
+        if (e.type == SDL_KEYDOWN) {
+            if (e.key.keysym.sym == SDLK_ESCAPE) {
+                std::cout << "ESC: Goodbye! (Leaving MainApplicationLoop())" << std::endl;
+                gQuit = true;
+            }
+            if (e.key.keysym.sym == SDLK_TAB) {
+                wireframeMode = !wireframeMode;
+                glPolygonMode(GL_FRONT_AND_BACK, wireframeMode ? GL_LINE : GL_FILL);
+            }
+        }
+    }
+
+    const Uint8* state = SDL_GetKeyboardState(NULL);
+    float cameraSpeed = 0.05f;
+
+    if (state[SDL_SCANCODE_W]) {
+        camera.MoveForward(cameraSpeed);
+    }
+    if (state[SDL_SCANCODE_S]) {
+        camera.MoveBackward(cameraSpeed);
+    }
+    if (state[SDL_SCANCODE_A]) {
+        camera.MoveLeft(cameraSpeed);
+    }
+    if (state[SDL_SCANCODE_D]) {
+        camera.MoveRight(cameraSpeed);
+    }
+}
+
+
+void PreDraw() {
+    glEnable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
 
-    // Set the polygon fill mode
-    glPolygonMode(GL_FRONT_AND_BACK,gPolygonMode);
+    glPolygonMode(GL_FRONT_AND_BACK, wireframeMode ? GL_LINE : GL_FILL);
 
-    // Initialize clear color
-    // This is the background of the screen.
-    glViewport(0, 0, gScreenWidth, gScreenHeight);
-    glClearColor( 0.1f, 4.f, 7.f, 1.f );
+    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    //Clear color buffer and Depth Buffer
-  	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    if (!modelLoaded)
+        return;
 
-    // Use our shader
-	glUseProgram(gGraphicsPipelineShaderProgram);
+    glUseProgram(gGraphicsPipelineShaderProgram);
 
-    // Model transformation by translating our object into world space
-    glm::mat4 model = glm::translate(glm::mat4(1.0f),glm::vec3(0.0f,0.0f,0.0f)); 
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 view = camera.GetViewMatrix();
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f),
+                                            (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT,
+                                            0.1f, 100.0f);
 
-
-    // Retrieve our location of our Model Matrix
-    GLint u_ModelMatrixLocation = glGetUniformLocation( gGraphicsPipelineShaderProgram,"u_ModelMatrix");
-    if(u_ModelMatrixLocation >=0){
-        glUniformMatrix4fv(u_ModelMatrixLocation,1,GL_FALSE,&model[0][0]);
-    }else{
+    GLint u_ModelMatrixLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "model");
+    if (u_ModelMatrixLocation >= 0) {
+        glUniformMatrix4fv(u_ModelMatrixLocation, 1, GL_FALSE, &model[0][0]);
+    } else {
         std::cout << "Could not find u_ModelMatrix, maybe a mispelling?\n";
         exit(EXIT_FAILURE);
     }
 
-
-    // Update the View Matrix
-    GLint u_ViewMatrixLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram,"u_ViewMatrix");
-    if(u_ViewMatrixLocation>=0){
-        glm::mat4 viewMatrix = gCamera.GetViewMatrix();
-        glUniformMatrix4fv(u_ViewMatrixLocation,1,GL_FALSE,&viewMatrix[0][0]);
-    }else{
+    GLint u_ViewMatrixLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "view");
+    if (u_ViewMatrixLocation >= 0) {
+        glUniformMatrix4fv(u_ViewMatrixLocation, 1, GL_FALSE, &view[0][0]);
+    } else {
         std::cout << "Could not find u_ModelMatrix, maybe a mispelling?\n";
         exit(EXIT_FAILURE);
     }
 
-
-    // Projection matrix (in perspective) 
-    glm::mat4 perspective = glm::perspective(glm::radians(45.0f),
-                                             (float)gScreenWidth/(float)gScreenHeight,
-                                             0.1f,
-                                             20.0f);
-
-    // Retrieve our location of our perspective matrix uniform 
-    GLint u_ProjectionLocation= glGetUniformLocation( gGraphicsPipelineShaderProgram,"u_Projection");
-    if(u_ProjectionLocation>=0){
-        glUniformMatrix4fv(u_ProjectionLocation,1,GL_FALSE,&perspective[0][0]);
-    }else{
+    GLint u_ProjectionLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "projection");
+    if (u_ProjectionLocation >= 0) {
+        glUniformMatrix4fv(u_ProjectionLocation, 1, GL_FALSE, &projection[0][0]);
+    } else {
         std::cout << "Could not find u_Perspective, maybe a mispelling?\n";
         exit(EXIT_FAILURE);
     }
+
+    float time = SDL_GetTicks() / 1000.0f;
+    float radius = 5.0f;
+    pointLight.position.x = radius * cos(time);
+    pointLight.position.z = radius * sin(time);
+    pointLight.position.y = 2.0f;
+
+    GLint viewPosLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "viewPos");
+    glUniform3fv(viewPosLocation, 1, glm::value_ptr(camera.GetPosition()));
+
+    GLint lightPosLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightPos");
+    glUniform3fv(lightPosLocation, 1, glm::value_ptr(pointLight.position));
+
+    GLint lightColorLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightColor");
+    glUniform3fv(lightColorLocation, 1, glm::value_ptr(pointLight.color));
+
+    glUniform1f(glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightConstant"), pointLight.constant);
+    glUniform1f(glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightLinear"), pointLight.linear);
+    glUniform1f(glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightQuadratic"), pointLight.quadratic);
+
+    GLint materialAmbientLoc = glGetUniformLocation(gGraphicsPipelineShaderProgram, "material.ambient");
+    GLint materialDiffuseLoc = glGetUniformLocation(gGraphicsPipelineShaderProgram, "material.diffuse");
+    GLint materialSpecularLoc = glGetUniformLocation(gGraphicsPipelineShaderProgram, "material.specular");
+    GLint materialShininessLoc = glGetUniformLocation(gGraphicsPipelineShaderProgram, "material.shininess");
+
+    glUniform3fv(materialAmbientLoc, 1, glm::value_ptr(material.ambient));
+    glUniform3fv(materialDiffuseLoc, 1, glm::value_ptr(material.diffuse));
+    glUniform3fv(materialSpecularLoc, 1, glm::value_ptr(material.specular));
+    glUniform1f(materialShininessLoc, material.shininess);
 }
 
+void Draw() {
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+    glBindVertexArray(0);
 
-/**
-* Draw
-* The render function gets called once per loop.
-* Typically this includes 'glDraw' related calls, and the relevant setup of buffers
-* for those calls.
-*
-* @return void
-*/
-void Draw(){
-    // Enable our attributes
-	glBindVertexArray(gVertexArrayObjectFloor);
-
-    //Render data
-    glDrawArrays(GL_TRIANGLES,0,gFloorTriangles);
-
-	// Stop using our current graphics pipeline
-	// Note: This is not necessary if we only have one graphics pipeline.
     glUseProgram(0);
 }
 
-/**
-* Helper Function to get OpenGL Version Information
-*
-* @return void
-*/
-void getOpenGLVersionInfo(){
-  std::cout << "Vendor: " << glGetString(GL_VENDOR) << "\n";
-  std::cout << "Renderer: " << glGetString(GL_RENDERER) << "\n";
-  std::cout << "Version: " << glGetString(GL_VERSION) << "\n";
-  std::cout << "Shading language: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << "\n";
-}
-
-
-/**
-* Function called in the Main application loop to handle user input
-*
-* @return void
-*/
-void Input(){
-    // Two static variables to hold the mouse position
-    static int mouseX=gScreenWidth/2;
-    static int mouseY=gScreenHeight/2; 
-
-	// Event handler that handles various events in SDL
-	// that are related to input and output
-	SDL_Event e;
-	//Handle events on queue
-	while(SDL_PollEvent( &e ) != 0){
-		// If users posts an event to quit
-		// An example is hitting the "x" in the corner of the window.
-		if(e.type == SDL_QUIT){
-			std::cout << "Goodbye! (Leaving MainApplicationLoop())" << std::endl;
-			gQuit = true;
-		}
-        if(e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE){
-			std::cout << "ESC: Goodbye! (Leaving MainApplicationLoop())" << std::endl;
-            gQuit = true;
-        }
-        if(e.type==SDL_MOUSEMOTION){
-            // Capture the change in the mouse position
-            mouseX+=e.motion.xrel;
-            mouseY+=e.motion.yrel;
-            gCamera.MouseLook(mouseX,mouseY);
-        }
-	}
-
-    // Retrieve keyboard state
-    const Uint8 *state = SDL_GetKeyboardState(NULL);
-    if (state[SDL_SCANCODE_UP]) {
-        SDL_Delay(250);
-        gFloorResolution+=1;
-        std::cout << "Resolution:" << gFloorResolution << std::endl;
-        GeneratePlaneBufferData();
-    }
-    if (state[SDL_SCANCODE_DOWN]) {
-        SDL_Delay(250); 
-        gFloorResolution-=1;
-        if(gFloorResolution<=1){
-            gFloorResolution=1;
-        }
-        std::cout << "Resolution:" << gFloorResolution << std::endl;
-        GeneratePlaneBufferData();
-    }
-
-    // Camera
-    // Update our position of the camera
-    if (state[SDL_SCANCODE_W]) {
-        gCamera.MoveForward(0.1f);
-    }
-    if (state[SDL_SCANCODE_S]) {
-        gCamera.MoveBackward(0.1f);
-    }
-    if (state[SDL_SCANCODE_A]) {
-    }
-    if (state[SDL_SCANCODE_D]) {
-    }
-
-    if (state[SDL_SCANCODE_1]) {
-        SDL_Delay(250); // This is hacky in the name of simplicity,
-                       // but we just delay the
-                       // system by a few milli-seconds to process the 
-                       // keyboard input once at a time.
-        if(gPolygonMode== GL_FILL){
-            gPolygonMode = GL_LINE;
-        }else{
-            gPolygonMode = GL_FILL;
-        }
-    }
-}
-
-
-/**
-* Main Application Loop
-* This is an infinite loop in our graphics application
-*
-* @return void
-*/
-void MainLoop(){
-
-    // Little trick to map mouse to center of screen always.
-    // Useful for handling 'mouselook'
-    // This works because we effectively 're-center' our mouse at the start
-    // of every frame prior to detecting any mouse motion.
-    SDL_WarpMouseInWindow(gGraphicsApplicationWindow,gScreenWidth/2,gScreenHeight/2);
+void MainLoop() {
+    SDL_WarpMouseInWindow(window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
     SDL_SetRelativeMouseMode(SDL_TRUE);
 
-
-	// While application is running
-	while(!gQuit){
-		// Handle Input
-		Input();
-		// Setup anything (i.e. OpenGL State) that needs to take
-		// place before draw calls
-		PreDraw();
-		// Draw Calls in OpenGL
-        // When we 'draw' in OpenGL, this activates the graphics pipeline.
-        // i.e. when we use glDrawElements or glDrawArrays,
-        //      The pipeline that is utilized is whatever 'glUseProgram' is
-        //      currently binded.
-		Draw();
-
-		//Update screen of our specified window
-		SDL_GL_SwapWindow(gGraphicsApplicationWindow);
-	}
+    while (!gQuit) {
+        Input();
+        PreDraw();
+        Draw();
+        SDL_GL_SwapWindow(window);
+    }
 }
 
-
-
-/**
-* The last function called in the program
-* This functions responsibility is to destroy any global
-* objects in which we have create dmemory.
-*
-* @return void
-*/
-void CleanUp(){
-	//Destroy our SDL2 Window
-	SDL_DestroyWindow(gGraphicsApplicationWindow );
-	gGraphicsApplicationWindow = nullptr;
-
+void CleanUp() {
     // Delete our OpenGL Objects
-    glDeleteBuffers(1, &gVertexBufferObjectFloor);
-    glDeleteVertexArrays(1, &gVertexArrayObjectFloor);
+    glDeleteBuffers(1, &vbo);
+    glDeleteVertexArrays(1, &vao);
 
-	// Delete our Graphics pipeline
+    // Delete our Graphics pipeline
     glDeleteProgram(gGraphicsPipelineShaderProgram);
 
-	//Quit SDL subsystems
-	SDL_Quit();
-}
+    // Destroy our SDL2 Window
+    SDL_GL_DeleteContext(glContext);
+    SDL_DestroyWindow(window);
+    window = nullptr;
 
-
-/**
-* The entry point into our C++ programs.
-*
-* @return program status
-*/
-int main( int argc, char* args[] ){
-    std::cout << "Use w and s keys to move forward and back\n";
-    std::cout << "Use up and down to change tessellation\n";
-    std::cout << "Use 1 to toggle wireframe\n";
-    std::cout << "Press ESC to quit\n";
-
-	// 1. Setup the graphics program
-	InitializeProgram();
-	
-	// 2. Setup our geometry
-	VertexSpecification();
-	
-	// 3. Create our graphics pipeline
-	// 	- At a minimum, this means the vertex and fragment shader
-	CreateGraphicsPipeline();
-	
-	// 4. Call the main application loop
-	MainLoop();	
-
-	// 5. Call the cleanup function when our program terminates
-	CleanUp();
-
-	return 0;
+    // Quit SDL subsystems
+    SDL_Quit();
 }
