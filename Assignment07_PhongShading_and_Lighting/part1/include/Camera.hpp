@@ -1,6 +1,3 @@
-#ifndef CAMERA_HPP
-#define CAMERA_HPP
-
 #include "glm/glm.hpp"
 
 class Camera {
@@ -36,5 +33,3 @@ private:
     glm::vec3 m_upVector;
     glm::vec2 m_oldMousePosition;
 };
-
-#endif

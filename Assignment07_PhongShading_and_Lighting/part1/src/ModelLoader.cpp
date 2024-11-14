@@ -4,55 +4,52 @@
 #include <iostream>
 
 bool ModelLoader::loadOBJ(const std::string& path) {
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        std::cerr << "OBJ file " << path << "could not be opened\n";
+    std::ifstream objFile(path);
+    if (!objFile.is_open()) {
+        std::cerr << "Failed to open OBJ file: " << path << std::endl;
         return false;
     }
 
-    std::vector<glm::vec3> positions;
-    std::vector<glm::vec3> normals;
-    std::vector<unsigned int> vertexIndices, normalIndices;
+    std::vector<glm::vec3> temp_positions;
+    std::vector<unsigned int> temp_indices;
 
     std::string line;
-    while (std::getline(file, line)) {
-        std::istringstream ss(line);
+    while (std::getline(objFile, line)) {
+        std::stringstream ss(line);
         std::string prefix;
         ss >> prefix;
 
         if (prefix == "v") {
-            glm::vec3 pos;
-            ss >> pos.x >> pos.y >> pos.z;
-            positions.push_back(pos);
-        } else if (prefix == "vn") {
-            glm::vec3 norm;
-            ss >> norm.x >> norm.y >> norm.z;
-            normals.push_back(norm);
-        } else if (prefix == "f") {
-            unsigned int vIdx[3], nIdx[3];
-            char slash;
+            glm::vec3 position;
+            ss >> position.x >> position.y >> position.z;
+            temp_positions.push_back(position);
+        }
+        else if (prefix == "f") {
+            std::string vertexInfo;
+            unsigned int vertexIndex;
             for (int i = 0; i < 3; ++i) {
-                ss >> vIdx[i] >> slash >> slash >> nIdx[i];
-                vertexIndices.push_back(vIdx[i]);
-                normalIndices.push_back(nIdx[i]);
+                ss >> vertexInfo;
+                std::stringstream vertexStream(vertexInfo);
+                std::string indexStr;
+                std::getline(vertexStream, indexStr, '/');
+                vertexIdx = std::stoi(indexStr) - 1;
+                temp_indices.push_back(vertexIdx);
             }
         }
     }
+    vertices = temp_positions;
+    indices = temp_indices;
 
-    for (size_t i = 0; i < vertexIndices.size(); ++i) {
-        unsigned int vi = vertexIndices[i] - 1;
-        unsigned int ni = normalIndices[i] - 1;
-
-        glm::vec3 pos = positions[vi];
-        glm::vec3 norm = normals[ni];
-        glm::vec3 color = glm::vec3(0.8f, 0.8f, 0.8f);
-
-        vertexData.insert(vertexData.end(), { pos.x, pos.y, pos.z });
-        vertexData.insert(vertexData.end(), { color.r, color.g, color.b });
-        vertexData.insert(vertexData.end(), { norm.x, norm.y, norm.z });
-    }
-
+    objFile.close();
     return true;
+}
+
+const std::vector<glm::vec3>& ModelLoader::getVertices() const {
+    return vertices;
+}
+
+const std::vector<unsigned int>& ModelLoader::getIndices() const {
+    return indices;
 }
 
 const std::vector<float>& ModelLoader::getVertexData() const {

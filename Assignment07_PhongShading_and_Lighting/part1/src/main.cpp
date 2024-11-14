@@ -30,8 +30,9 @@ bool wireframeMode = false;
 bool modelLoaded = false;
 
 GLuint gGraphicsPipelineShaderProgram = 0;
-GLuint vao = 0, vbo = 0;
+GLuint vao = 0, vbo = 0, ebo = 0;
 size_t vertexCount = 0;
+size_t indexCount = 0;
 Camera camera;
 
 struct PointLight {
@@ -264,11 +265,17 @@ void CreateGraphicsPipeline() {
 }
 
 void GenerateBufferData(const ModelLoader& model) {
-    const auto& vertices = model.getVertexData();
-    vertexCount = vertices.size() / 9;
+    const auto& vertices = model.getVertices();
+    vertexCount = vertices.size();
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_STATIC_DRAW);
+
+    const auto& indices = model.getIndices();
+    indexCount = indices.size();
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+
 }
 
 void VertexSpecification(const ModelLoader& model) {
@@ -276,26 +283,27 @@ void VertexSpecification(const ModelLoader& model) {
     glBindVertexArray(vao);
 
     glGenBuffers(1, &vbo);
+    glGenBuffers(1, &ebo);
 
     GenerateBufferData(model);
 
     // Setup vertex attributes
     // Position
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT) * 9, (void*)0);
-    // Color (not used in this task)
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT) * 9, (GLvoid*)(sizeof(GL_FLOAT) * 3));
-    // Normal
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(GL_FLOAT) * 9, (GLvoid*)(sizeof(GL_FLOAT) * 6));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    // // Color
+    // glEnableVertexAttribArray(1);
+    // glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (GLvoid*)(sizeof(GL_FLOAT) * 3));
+    // // Normal
+    // glEnableVertexAttribArray(2);
+    // glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (GLvoid*)(sizeof(GL_FLOAT) * 6));
 
     glBindVertexArray(0);
 
     // Disable vertex attributes
     glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(1);
-    glDisableVertexAttribArray(2);
+    // glDisableVertexAttribArray(1);
+    // glDisableVertexAttribArray(2);
 }
 
 
@@ -384,39 +392,40 @@ void PreDraw() {
         exit(EXIT_FAILURE);
     }
 
-    float time = SDL_GetTicks() / 1000.0f;
-    float radius = 5.0f;
-    pointLight.position.x = radius * cos(time);
-    pointLight.position.z = radius * sin(time);
-    pointLight.position.y = 2.0f;
+    // float time = SDL_GetTicks() / 1000.0f;
+    // float radius = 5.0f;
+    // pointLight.position.x = radius * cos(time);
+    // pointLight.position.z = radius * sin(time);
+    // pointLight.position.y = 2.0f;
 
-    GLint viewPosLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "viewPos");
-    glUniform3fv(viewPosLocation, 1, glm::value_ptr(camera.GetPosition()));
+    // GLint viewPosLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "viewPos");
+    // glUniform3fv(viewPosLocation, 1, glm::value_ptr(camera.GetPosition()));
 
-    GLint lightPosLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightPos");
-    glUniform3fv(lightPosLocation, 1, glm::value_ptr(pointLight.position));
+    // GLint lightPosLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightPos");
+    // glUniform3fv(lightPosLocation, 1, glm::value_ptr(pointLight.position));
 
-    GLint lightColorLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightColor");
-    glUniform3fv(lightColorLocation, 1, glm::value_ptr(pointLight.color));
+    // GLint lightColorLocation = glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightColor");
+    // glUniform3fv(lightColorLocation, 1, glm::value_ptr(pointLight.color));
 
-    glUniform1f(glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightConstant"), pointLight.constant);
-    glUniform1f(glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightLinear"), pointLight.linear);
-    glUniform1f(glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightQuadratic"), pointLight.quadratic);
+    // glUniform1f(glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightConstant"), pointLight.constant);
+    // glUniform1f(glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightLinear"), pointLight.linear);
+    // glUniform1f(glGetUniformLocation(gGraphicsPipelineShaderProgram, "lightQuadratic"), pointLight.quadratic);
 
-    GLint materialAmbientLoc = glGetUniformLocation(gGraphicsPipelineShaderProgram, "material.ambient");
-    GLint materialDiffuseLoc = glGetUniformLocation(gGraphicsPipelineShaderProgram, "material.diffuse");
-    GLint materialSpecularLoc = glGetUniformLocation(gGraphicsPipelineShaderProgram, "material.specular");
-    GLint materialShininessLoc = glGetUniformLocation(gGraphicsPipelineShaderProgram, "material.shininess");
+    // GLint materialAmbientLoc = glGetUniformLocation(gGraphicsPipelineShaderProgram, "material.ambient");
+    // GLint materialDiffuseLoc = glGetUniformLocation(gGraphicsPipelineShaderProgram, "material.diffuse");
+    // GLint materialSpecularLoc = glGetUniformLocation(gGraphicsPipelineShaderProgram, "material.specular");
+    // GLint materialShininessLoc = glGetUniformLocation(gGraphicsPipelineShaderProgram, "material.shininess");
 
-    glUniform3fv(materialAmbientLoc, 1, glm::value_ptr(material.ambient));
-    glUniform3fv(materialDiffuseLoc, 1, glm::value_ptr(material.diffuse));
-    glUniform3fv(materialSpecularLoc, 1, glm::value_ptr(material.specular));
-    glUniform1f(materialShininessLoc, material.shininess);
+    // glUniform3fv(materialAmbientLoc, 1, glm::value_ptr(material.ambient));
+    // glUniform3fv(materialDiffuseLoc, 1, glm::value_ptr(material.diffuse));
+    // glUniform3fv(materialSpecularLoc, 1, glm::value_ptr(material.specular));
+    // glUniform1f(materialShininessLoc, material.shininess);
 }
 
 void Draw() {
     glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+    //glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+    glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
     glUseProgram(0);
@@ -438,6 +447,7 @@ void CleanUp() {
     // Delete our OpenGL Objects
     glDeleteBuffers(1, &vbo);
     glDeleteVertexArrays(1, &vao);
+    glDeleteBuffers(1, &ebo);
 
     // Delete our Graphics pipeline
     glDeleteProgram(gGraphicsPipelineShaderProgram);
