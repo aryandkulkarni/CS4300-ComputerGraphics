@@ -2,15 +2,15 @@
 
 **Please edit the check box below(By placing an 'x' in the markdown) to help indicate to me if you completed all of A5 or just the shader in the starter code**
 
-- [ ] - I completed only the starter code shaders for up to 95% of the assignment.
+- [x] - I completed only the starter code shaders for up to 95% of the assignment.
 - [ ] - I completed the .obj model (and/or the starter code)
 
 
 *TODO*: Please edit the following information in your assignment
 
 * Name:
-* How many hours did it take you to complete this assignment? 
-* Did you collaborate or share ideas with any other students/TAs/Professors? 
+* How many hours did it take you to complete this assignment? 2
+* Did you collaborate or share ideas with any other students/TAs/Professors? Hakim Badmus
 * Did you use any external resources? 
   * (tbd if any)
   * (tbd if any)
