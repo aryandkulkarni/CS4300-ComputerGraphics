@@ -8,7 +8,7 @@
 
 *TODO*: Please edit the following information in your assignment
 
-* Name:
+* Name: Aryan Kulkarni
 * How many hours did it take you to complete this assignment? 2
 * Did you collaborate or share ideas with any other students/TAs/Professors? Hakim Badmus
 * Did you use any external resources? 
