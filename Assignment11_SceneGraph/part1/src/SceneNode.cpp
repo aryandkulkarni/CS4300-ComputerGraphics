@@ -62,20 +62,14 @@ void SceneNode::Draw(){
 // the objects update method.
 // TODO: Consider not passting projection and camera here
 void SceneNode::Update(glm::mat4 projectionMatrix, Camera* camera){
-    if(m_object!=nullptr){
-        // TODO: Implement here!
-    
-		// ??
-		// ??
-		// ??
-		// ??
-		// ??
-		// ??	
-		// ??
-		// ??	
+    if (m_parent != nullptr) {
+        m_worldTransform = m_parent->GetWorldTransform() * m_localTransform;
+    } else {
+        m_worldTransform = m_localTransform;
+    }
 
     	// Now apply our shader 
-		m_shader.Bind();
+			m_shader.Bind();
     	// Set the uniforms in our current shader
 
         // For our object, we apply the texture in the following way
@@ -96,11 +90,10 @@ void SceneNode::Update(glm::mat4 projectionMatrix, Camera* camera){
                                camera->GetEyeZPosition() + camera->GetViewZDirection());
         m_shader.SetUniform1f("ambientIntensity",0.5f);
 	
-		// Iterate through all of the children
-		for(int i =0; i < m_children.size(); ++i){
-			m_children[i]->Update(projectionMatrix, camera);
-		}
-	}
+				// Iterate through all of the children
+				for(int i =0; i < m_children.size(); ++i){
+						m_children[i]->Update(projectionMatrix, camera);
+				}
 }
 
 // Returns the actual local transform stored in our SceneNode

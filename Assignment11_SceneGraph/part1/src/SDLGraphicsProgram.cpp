@@ -132,34 +132,80 @@ SceneNode* Sun;
 
 //Loops forever!
 void SDLGraphicsProgram::Loop(){
-
-    // ================== Initialize the planets ===============
+    // Initialize rotation angle
     static float rotate = 0.0f;
 
-    // Create new geometry for Earth's Moon
-    sphere3 = new Sphere();
-    sphere3->LoadTexture("./../../common/textures/rock.ppm");
-    // Create a new node using sphere3 as the geometry
-    Moon = new SceneNode(sphere3);
+    // ================== Initialize the planets ===============
 
-    // Create the Earth
-    sphere2 = new Sphere();
-    sphere2->LoadTexture("./../../common/textures/earth.ppm");
-    Earth = new SceneNode(sphere2);
     // Create the Sun
-    sphere = new Sphere();
-    sphere->LoadTexture("./../../common/textures/sun.ppm");
-    Sun = new SceneNode(sphere);
+    Object* sunSphere = new Sphere();
+    sunSphere->LoadTexture("./../../common/textures/sun.ppm");
+    SceneNode* Sun = new SceneNode(sunSphere);
+
+    // Create Planet1
+    Object* planet1Sphere = new Sphere();
+    planet1Sphere->LoadTexture("./../../common/textures/earth.ppm");
+    SceneNode* Planet1 = new SceneNode(planet1Sphere);
+
+    // Create Planet1 moons
+    Object* planet1Moon1Sphere = new Sphere();
+    planet1Moon1Sphere->LoadTexture("./../../common/textures/rock.ppm");
+    SceneNode* Planet1Moon1 = new SceneNode(planet1Moon1Sphere);
+
+    Object* planet1Moon2Sphere = new Sphere();
+    planet1Moon2Sphere->LoadTexture("./../../common/textures/rock.ppm");
+    SceneNode* Planet1Moon2 = new SceneNode(planet1Moon2Sphere);
+
+    // Create Planet2
+    Object* planet2Sphere = new Sphere();
+    planet2Sphere->LoadTexture("./../../common/textures/mercury.ppm");
+    SceneNode* Planet2 = new SceneNode(planet2Sphere);
+
+    // Create Planet2 moons
+    Object* planet2Moon1Sphere = new Sphere();
+    planet2Moon1Sphere->LoadTexture("./../../common/textures/rock.ppm");
+    SceneNode* Planet2Moon1 = new SceneNode(planet2Moon1Sphere);
+
+    Object* planet2Moon2Sphere = new Sphere();
+    planet2Moon2Sphere->LoadTexture("./../../common/textures/rock.ppm");
+    SceneNode* Planet2Moon2 = new SceneNode(planet2Moon2Sphere);
+
+    // Create Planet3
+    Object* planet3Sphere = new Sphere();
+    planet3Sphere->LoadTexture("./../../common/textures/earth.ppm");
+    SceneNode* Planet3 = new SceneNode(planet3Sphere);
+
+    // Create Planet3 moons
+    Object* planet3Moon1Sphere = new Sphere();
+    planet3Moon1Sphere->LoadTexture("./../../common/textures/rock.ppm");
+    SceneNode* Planet3Moon1 = new SceneNode(planet3Moon1Sphere);
+
+    Object* planet3Moon2Sphere = new Sphere();
+    planet3Moon2Sphere->LoadTexture("./../../common/textures/rock.ppm");
+    SceneNode* Planet3Moon2 = new SceneNode(planet3Moon2Sphere);
+
+    // ================== Build the scene graph hierarchy ===============
 
     // Render our scene starting from the sun.
     m_renderer->setRoot(Sun);
-    // Make the Earth a child of the Sun
-    Sun->AddChild(Earth);
-    // Make the Moon a child of the Earth
-    Earth->AddChild(Moon);
-    
+
+    // Make the planets children of the Sun
+    Sun->AddChild(Planet1);
+    Sun->AddChild(Planet2);
+    Sun->AddChild(Planet3);
+
+    // Make the moons children of the planets
+    Planet1->AddChild(Planet1Moon1);
+    Planet1->AddChild(Planet1Moon2);
+
+    Planet2->AddChild(Planet2Moon1);
+    Planet2->AddChild(Planet2Moon2);
+
+    Planet3->AddChild(Planet3Moon1);
+    Planet3->AddChild(Planet3Moon2);
+
     // Set a default position for our camera
-    m_renderer->GetCamera(0)->SetCameraEyePosition(0.0f,0.0f,20.0f);
+    m_renderer->GetCamera(0)->SetCameraEyePosition(0.0f, 0.0f, 70.0f); // Moved camera back to see all planets
 
     // Main loop flag
     // If this is quit = 'true' then the program terminates.
@@ -169,31 +215,25 @@ void SDLGraphicsProgram::Loop(){
     SDL_Event e;
     // Enable text input
     SDL_StartTextInput();
-
+    
     // Set the camera speed for how fast we move.
     float cameraSpeed = 5.0f;
 
     // While application is running
-    while(!quit){
+    while (!quit) {
 
-        //Handle events on queue
-        while(SDL_PollEvent( &e ) != 0){
+        // Handle events on queue
+        while (SDL_PollEvent(&e) != 0) {
             // User posts an event to quit
             // An example is hitting the "x" in the corner of the window.
-            if(e.type == SDL_QUIT){
+            if (e.type == SDL_QUIT) {
                 quit = true;
             }
             // Handle keyboard input for the camera class
-            if(e.type==SDL_MOUSEMOTION){
-                // Handle mouse movements
-                int mouseX = e.motion.x;
-                int mouseY = e.motion.y;
-//              m_renderer->GetCamera(0)->MouseLook(mouseX, mouseY);
-            }
-            switch(e.type){
+            switch (e.type) {
                 // Handle keyboard presses
                 case SDL_KEYDOWN:
-                    switch(e.key.keysym.sym){
+                    switch (e.key.keysym.sym) {
                         case SDLK_LEFT:
                             m_renderer->GetCamera(0)->MoveLeft(cameraSpeed);
                             break;
@@ -213,7 +253,7 @@ void SDLGraphicsProgram::Loop(){
                             m_renderer->GetCamera(0)->MoveDown(cameraSpeed);
                             break;
                     }
-                break;
+                    break;
             }
         } // End SDL_PollEvent loop.
         // ================== Use the planets ===============
@@ -226,28 +266,94 @@ void SDLGraphicsProgram::Loop(){
         //      The 'Sun' for example will be the only object shown initially
         //      since the rest of the planets are children (or grandchildren)
         //      of the Sun.
-        Sun->GetLocalTransform().LoadIdentity();		
-        // ... transform the Sun
 
-        Moon->GetLocalTransform().LoadIdentity();		
-        // ... transform the Moon
+        rotate += 0.005f;
 
-        Earth->GetLocalTransform().LoadIdentity();		
-        // ... transform the Earth        
+        float rotateAroundSun = rotate * 0.2f;
+        float rotateSunSpin = rotate * 0.1f;
+        float rotatePlanet1Spin = rotate * 5.0f;
+        float rotatePlanet1Moon1Orbit = rotate * 2.5f;
+        float rotatePlanet1Moon2Orbit = rotate * 1.5f;
+
+        float rotatePlanet2Orbit = rotate * 0.3f;
+        float rotatePlanet2Spin = rotate * 4.0f;
+        float rotatePlanet2Moon1Orbit = rotate * 2.0f;
+        float rotatePlanet2Moon2Orbit = rotate * 3.0f;
+
+        float rotatePlanet3Orbit = rotate * 0.15f;
+        float rotatePlanet3Spin = rotate * 2.5f;
+        float rotatePlanet3Moon1Orbit = rotate * 1.0f;
+        float rotatePlanet3Moon2Orbit = rotate * 1.5f;
+
+        Sun->GetLocalTransform().LoadIdentity();
+        Sun->GetLocalTransform().Scale(3.0f, 3.0f, 3.0f);
+        Sun->GetLocalTransform().Rotate(rotateSunSpin, 0.0f, 1.0f, 0.0f);
+
+        Planet1->GetLocalTransform().LoadIdentity();
+        Planet1->GetLocalTransform().Rotate(rotateAroundSun, 0.0f, 1.0f, 0.0f);
+        Planet1->GetLocalTransform().Translate(12.0f, 0.0f, 0.0f);
+        Planet1->GetLocalTransform().Rotate(rotatePlanet1Spin, 0.0f, 1.0f, 0.0f);
+        Planet1->GetLocalTransform().Scale(1.0f, 1.0f, 1.0f);
+
+        Planet1Moon1->GetLocalTransform().LoadIdentity();
+        Planet1Moon1->GetLocalTransform().Rotate(rotatePlanet1Moon1Orbit, 0.0f, 1.0f, 0.0f);
+        Planet1Moon1->GetLocalTransform().Translate(3.5f, 0.0f, 0.0f);
+        Planet1Moon1->GetLocalTransform().Scale(0.3f, 0.3f, 0.3f);
+
+        Planet1Moon2->GetLocalTransform().LoadIdentity();
+        Planet1Moon2->GetLocalTransform().Rotate(rotatePlanet1Moon2Orbit, 0.0f, 1.0f, 0.0f);
+        Planet1Moon2->GetLocalTransform().Translate(-4.0f, 0.0f, 0.0f);
+        Planet1Moon2->GetLocalTransform().Scale(0.25f, 0.25f, 0.25f);
+
+        Planet2->GetLocalTransform().LoadIdentity();
+        Planet2->GetLocalTransform().Rotate(rotatePlanet2Orbit, 0.0f, 1.0f, 0.0f);
+        Planet2->GetLocalTransform().Translate(18.0f, 0.0f, 0.0f);
+        Planet2->GetLocalTransform().Rotate(rotatePlanet2Spin, 0.0f, 1.0f, 0.0f);
+        Planet2->GetLocalTransform().Scale(0.8f, 0.8f, 0.8f);
+
+        Planet2Moon1->GetLocalTransform().LoadIdentity();
+        Planet2Moon1->GetLocalTransform().Rotate(rotatePlanet2Moon1Orbit, 0.0f, 1.0f, 0.0f); 
+        Planet2Moon1->GetLocalTransform().Translate(2.5f, 0.0f, 0.0f);
+        Planet2Moon1->GetLocalTransform().Scale(0.2f, 0.2f, 0.2f);
+
+        Planet2Moon2->GetLocalTransform().LoadIdentity();
+        Planet2Moon2->GetLocalTransform().Rotate(rotatePlanet2Moon2Orbit, 0.0f, 1.0f, 0.0f);
+        Planet2Moon2->GetLocalTransform().Translate(-3.0f, 0.0f, 0.0f);
+        Planet2Moon2->GetLocalTransform().Scale(0.22f, 0.22f, 0.22f);
+
+        Planet3->GetLocalTransform().LoadIdentity();
+        Planet3->GetLocalTransform().Rotate(rotatePlanet3Orbit, 0.0f, 1.0f, 0.0f);
+        Planet3->GetLocalTransform().Translate(26.0f, 0.0f, 0.0f);
+        Planet3->GetLocalTransform().Rotate(rotatePlanet3Spin, 0.0f, 1.0f, 0.0f);
+        Planet3->GetLocalTransform().Scale(1.2f, 1.2f, 1.2f);
+
+        Planet3Moon1->GetLocalTransform().LoadIdentity();
+        Planet3Moon1->GetLocalTransform().Rotate(rotatePlanet3Moon1Orbit, 0.0f, 1.0f, 0.0f);
+        Planet3Moon1->GetLocalTransform().Translate(5.0f, 0.0f, 0.0f);
+        Planet3Moon1->GetLocalTransform().Scale(0.3f, 0.3f, 0.3f);
+
+        Planet3Moon2->GetLocalTransform().LoadIdentity();
+        Planet3Moon2->GetLocalTransform().Rotate(rotatePlanet3Moon2Orbit, 0.0f, 1.0f, 0.0f);
+        Planet3Moon2->GetLocalTransform().Translate(-6.0f, 0.0f, 0.0f);
+        Planet3Moon2->GetLocalTransform().Scale(0.35f, 0.35f, 0.35f);
+
+        // ================== Update and render the scene ==================
 
         // Update our scene through our renderer
         m_renderer->Update();
         // Render our scene using our selected renderer
         m_renderer->Render();
         // Delay to slow things down just a bit!
-        SDL_Delay(25);  // TODO: You can change this or implement a frame
-                        // independent movement method if you like.
-      	//Update screen of our specified window
-      	SDL_GL_SwapWindow(GetSDLWindow());
-	}
-    //Disable text input
+        SDL_Delay(25); // TODO: You can change this or implement a frame
+                    // independent movement method if you like.
+        //Update screen of our specified window
+        SDL_GL_SwapWindow(GetSDLWindow());
+    }
+    // Disable text input
     SDL_StopTextInput();
 }
+
+
 
 
 // Get Pointer to Window
